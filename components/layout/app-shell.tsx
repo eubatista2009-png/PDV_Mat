@@ -28,8 +28,8 @@ type AppShellProps = {
 export function AppShell({ title, description, pathname, email, role, demo, children }: AppShellProps) {
   return (
     <div className="min-h-screen px-6 py-6">
-      <div className="grid w-full gap-4 lg:grid-cols-[260px_1fr]">
-        <aside className="surface sticky top-4 flex h-fit flex-col rounded-[28px] p-5 shadow-soft">
+      <div className="grid min-h-[calc(100vh-48px)] w-full items-start gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="surface flex rounded-[28px] p-5 shadow-soft lg:sticky lg:top-6 lg:max-h-[calc(100vh-48px)] lg:flex-col lg:self-start lg:overflow-y-auto">
           <div>
             <span className="eyebrow text-xs text-clay">PDV Mat</span>
             <h1 className="mt-3 font-[var(--font-heading)] text-2xl text-ink">Operacao da loja</h1>
@@ -75,7 +75,7 @@ export function AppShell({ title, description, pathname, email, role, demo, chil
           </form>
         </aside>
 
-        <section className="space-y-4">
+        <section className="min-w-0 space-y-4">
           <header className="surface flex flex-col gap-4 rounded-[28px] p-6 shadow-soft md:flex-row md:items-end md:justify-between">
             <div>
               <span className="eyebrow text-xs text-forest">Painel operacional</span>

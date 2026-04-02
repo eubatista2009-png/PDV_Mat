@@ -8,6 +8,7 @@
 
 body {
   min-height: 100vh;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top, rgba(242, 184, 75, 0.14), transparent 24%),
     linear-gradient(135deg, #f8f3eb 0%, #eef3f1 48%, #fffaf4 100%);

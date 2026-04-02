@@ -18,7 +18,7 @@ export default async function DashboardPage() {
       role={user.role}
       demo={user.demo}
     >
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 xl:auto-rows-fr">
         {data.metrics.map((metric) => (
           <KpiCard key={metric.label} {...metric} />
         ))}
@@ -26,7 +26,7 @@ export default async function DashboardPage() {
 
       <RevenueChart revenue={data.monthlyRevenue} categories={data.categoryShare} />
 
-      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:items-start">
         <article className="surface rounded-[28px] p-6 shadow-soft">
           <h3 className="font-[var(--font-heading)] text-xl text-ink">Ruptura iminente</h3>
           <div className="mt-5 space-y-3">
