@@ -40,13 +40,20 @@ export async function listRecentSales(): Promise<Sale[]> {
     total: Number(sale.total),
     forma_pagamento: sale.forma_pagamento,
     created_at: sale.created_at,
-    itens: (sale.itens_venda ?? []).map((item) => ({
-      produto_id: item.produto_id,
-      nome: Array.isArray(item.produtos) ? item.produtos[0]?.nome ?? 'Produto' : item.produtos?.nome ?? 'Produto',
-      quantidade: item.quantidade,
-      preco: Number(item.preco),
-      subtotal: Number(item.preco) * item.quantidade
-    }))
+    itens: (sale.itens_venda ?? []).map((item) => {
+      const produtoRelacionamento = item.produtos as { nome?: string } | Array<{ nome?: string }> | null;
+      const nome = Array.isArray(produtoRelacionamento)
+        ? produtoRelacionamento[0]?.nome ?? 'Produto'
+        : produtoRelacionamento?.nome ?? 'Produto';
+
+      return {
+        produto_id: item.produto_id,
+        nome,
+        quantidade: item.quantidade,
+        preco: Number(item.preco),
+        subtotal: Number(item.preco) * item.quantidade
+      };
+    })
   }));
 }
 
