@@ -51,7 +51,7 @@ export default async function EstoquePage() {
 
       <StockImportPanel isAdmin={user.role === 'admin'} />
 
-      <StockTable products={products} />
+      <StockTable products={products} isAdmin={user.role === 'admin'} />
     </AppShell>
   );
 }

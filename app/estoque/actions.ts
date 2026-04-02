@@ -1,9 +1,10 @@
 'use server';
 
 import * as XLSX from 'xlsx';
+import { revalidatePath } from 'next/cache';
 
 import { getCurrentUser } from '@/lib/auth';
-import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { getSupabaseAdminClient } from '@/lib/supabase/admin';
 import { fetchGoogleProductSpecsByBarcode } from '@/services/google-product-specs-service';
 
 type ActionResult = {
@@ -80,12 +81,12 @@ export async function importEstoquePlanilhaAction(formData: FormData): Promise<A
     return { ok: false, message: 'Selecione um arquivo .xlsx, .xls ou .csv.' };
   }
 
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseAdminClient();
 
   if (!supabase) {
     return {
       ok: false,
-      message: 'Supabase nao configurado. A importacao exige conexao com banco para persistir os dados.'
+      message: 'Supabase admin nao configurado. Defina SUPABASE_SERVICE_ROLE_KEY para importar estoque.'
     };
   }
 
@@ -173,6 +174,8 @@ export async function importEstoquePlanilhaAction(formData: FormData): Promise<A
     return { ok: false, message: `Falha ao importar planilha: ${error.message}` };
   }
 
+  revalidatePath('/estoque');
+
   return {
     ok: true,
     message: `Importacao concluida. ${upsertRows.length} linhas processadas com sucesso${invalidRows ? ` e ${invalidRows} linhas invalidas ignoradas` : ''}.`
@@ -197,12 +200,12 @@ export async function entradaPorCodigoBarrasAction(formData: FormData): Promise<
     return { ok: false, message: 'Informe uma quantidade de entrada maior que zero.' };
   }
 
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseAdminClient();
 
   if (!supabase) {
     return {
       ok: false,
-      message: 'Supabase nao configurado. A entrada por codigo de barras exige conexao com banco.'
+      message: 'Supabase admin nao configurado. Defina SUPABASE_SERVICE_ROLE_KEY para registrar entrada por codigo de barras.'
     };
   }
 
@@ -264,8 +267,43 @@ export async function entradaPorCodigoBarrasAction(formData: FormData): Promise<
     return { ok: false, message: `Erro ao atualizar estoque: ${updateError.message}` };
   }
 
+  revalidatePath('/estoque');
+
   return {
     ok: true,
     message: `Entrada registrada para ${product.nome}. Estoque atualizado para ${novaQuantidade} unidades.`
   };
+}
+
+export async function excluirProdutoEstoqueAction(formData: FormData): Promise<ActionResult> {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== 'admin') {
+    return { ok: false, message: 'Somente administradores podem excluir itens do estoque.' };
+  }
+
+  const productId = String(formData.get('product_id') ?? '').trim();
+
+  if (!productId) {
+    return { ok: false, message: 'Produto invalido para exclusao.' };
+  }
+
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    return {
+      ok: false,
+      message: 'Supabase admin nao configurado. Defina SUPABASE_SERVICE_ROLE_KEY para excluir itens.'
+    };
+  }
+
+  const { error } = await supabase.from('produtos').delete().eq('id', productId);
+
+  if (error) {
+    return { ok: false, message: `Falha ao excluir item: ${error.message}` };
+  }
+
+  revalidatePath('/estoque');
+
+  return { ok: true, message: 'Item excluido com sucesso.' };
 }
