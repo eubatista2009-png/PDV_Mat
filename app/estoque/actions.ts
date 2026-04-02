@@ -115,7 +115,7 @@ export async function importEstoquePlanilhaAction(formData: FormData): Promise<A
     return normalizedRow;
   });
 
-  const upsertRows: Array<{
+  const parsedRows: Array<{
     nome: string;
     categoria: string;
     preco_custo: number;
@@ -150,7 +150,7 @@ export async function importEstoquePlanilhaAction(formData: FormData): Promise<A
       continue;
     }
 
-    upsertRows.push({
+    parsedRows.push({
       nome,
       categoria,
       preco_custo: Math.max(0, Number(precoCusto.toFixed(2))),
@@ -161,12 +161,26 @@ export async function importEstoquePlanilhaAction(formData: FormData): Promise<A
     });
   }
 
-  if (!upsertRows.length) {
+  if (!parsedRows.length) {
     return {
       ok: false,
       message: 'Nenhuma linha valida encontrada. Verifique os campos obrigatorios: nome, categoria, preco_custo, preco_venda, quantidade, estoque_minimo, codigo_barras.'
     };
   }
+
+  const uniqueRowsByBarcode = new Map<string, (typeof parsedRows)[number]>();
+  let duplicateRows = 0;
+
+  for (const row of parsedRows) {
+    if (uniqueRowsByBarcode.has(row.codigo_barras)) {
+      duplicateRows += 1;
+    }
+
+    // Mantem a ultima ocorrencia do mesmo codigo de barras no arquivo.
+    uniqueRowsByBarcode.set(row.codigo_barras, row);
+  }
+
+  const upsertRows = Array.from(uniqueRowsByBarcode.values());
 
   const { error } = await supabase.from('produtos').upsert(upsertRows, { onConflict: 'codigo_barras' });
 
@@ -178,7 +192,7 @@ export async function importEstoquePlanilhaAction(formData: FormData): Promise<A
 
   return {
     ok: true,
-    message: `Importacao concluida. ${upsertRows.length} linhas processadas com sucesso${invalidRows ? ` e ${invalidRows} linhas invalidas ignoradas` : ''}.`
+    message: `Importacao concluida. ${upsertRows.length} produtos processados com sucesso${invalidRows ? `, ${invalidRows} linhas invalidas ignoradas` : ''}${duplicateRows ? ` e ${duplicateRows} linhas duplicadas consolidadas pelo codigo de barras` : ''}.`
   };
 }
 
