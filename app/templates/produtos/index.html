@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}Produtos – PDV Materiais{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4><i class="bi bi-boxes"></i> Produtos</h4>
+  <a href="{{ url_for('produtos.novo') }}" class="btn btn-primary">
+    <i class="bi bi-plus"></i> Novo Produto
+  </a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-5">
+        <input type="text" name="q" class="form-control" placeholder="Buscar por nome ou código..."
+               value="{{ q }}">
+      </div>
+      <div class="col-md-4">
+        <select name="categoria_id" class="form-select">
+          <option value="">Todas as categorias</option>
+          {% for c in categorias %}
+          <option value="{{ c.id }}" {% if categoria_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-outline-secondary w-100">
+          <i class="bi bi-search"></i> Filtrar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Código</th>
+          <th>Nome</th>
+          <th>Categoria</th>
+          <th>Unidade</th>
+          <th class="text-end">Preço Venda</th>
+          <th class="text-end">Estoque</th>
+          <th>Status</th>
+          <th class="no-print"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in produtos %}
+        <tr class="{{ 'table-danger' if p.estoque <= p.estoque_minimo and p.ativo else '' }}">
+          <td><code>{{ p.codigo }}</code></td>
+          <td>{{ p.nome }}</td>
+          <td><small class="text-muted">{{ p.categoria.nome }}</small></td>
+          <td>{{ p.unidade }}</td>
+          <td class="text-end">R$ {{ "%.2f"|format(p.preco_venda) }}</td>
+          <td class="text-end">
+            {{ "%.3f"|format(p.estoque)|replace('.000','') }}
+            {% if p.estoque <= p.estoque_minimo and p.ativo %}
+              <i class="bi bi-exclamation-triangle text-danger" title="Estoque baixo"></i>
+            {% endif %}
+          </td>
+          <td>
+            {% if p.ativo %}
+              <span class="badge bg-success">Ativo</span>
+            {% else %}
+              <span class="badge bg-secondary">Inativo</span>
+            {% endif %}
+          </td>
+          <td class="no-print">
+            <a href="{{ url_for('produtos.editar', id=p.id) }}" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <form method="post" action="{{ url_for('produtos.excluir', id=p.id) }}"
+                  style="display:inline"
+                  onsubmit="return confirm('Excluir/desativar este produto?')">
+              <button type="submit" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-3">Nenhum produto encontrado</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

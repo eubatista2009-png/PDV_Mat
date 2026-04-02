@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% block title %}Venda {{ venda.numero }} – PDV Materiais{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4><i class="bi bi-cart"></i> Venda <code>{{ venda.numero }}</code></h4>
+  <a href="{{ url_for('vendas.index') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Voltar
+  </a>
+</div>
+
+{% if venda.status != 'aberta' %}
+<div class="alert alert-{{ 'success' if venda.status == 'finalizada' else 'danger' }}">
+  Esta venda está <strong>{{ venda.status }}</strong>.
+  <a href="{{ url_for('vendas.detalhe', id=venda.id) }}">Ver detalhes</a>
+</div>
+{% else %}
+
+<div class="row g-3">
+  <!-- Busca de produto -->
+  <div class="col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-search"></i> Adicionar Item</div>
+      <div class="card-body">
+        <div class="row g-2 mb-3">
+          <div class="col-md-8">
+            <label class="form-label">Buscar Produto (nome ou código)</label>
+            <input type="text" id="buscaProduto" class="form-control"
+                   placeholder="Digite para buscar...">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Quantidade</label>
+            <input type="number" id="qtdInput" class="form-control" value="1" min="0.001" step="any">
+          </div>
+        </div>
+        <div id="resultadosBusca" class="list-group mb-3" style="max-height:200px;overflow-y:auto;"></div>
+        <div id="produtoSelecionado" class="d-none">
+          <div class="alert alert-info py-2 d-flex justify-content-between align-items-center">
+            <span id="produtoInfo"></span>
+            <button class="btn btn-sm btn-success" id="btnAddItem">
+              <i class="bi bi-plus-circle"></i> Adicionar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Itens da venda -->
+    <div class="card">
+      <div class="card-header"><i class="bi bi-list-ul"></i> Itens da Venda</div>
+      <div class="card-body p-0">
+        <table class="table mb-0" id="tabelaItens">
+          <thead class="table-light">
+            <tr>
+              <th>Produto</th>
+              <th class="text-end">Qtd</th>
+              <th class="text-end">Preço</th>
+              <th class="text-end">Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbodyItens">
+            {% for item in venda.itens %}
+            <tr id="row-{{ item.id }}">
+              <td>
+                <small class="text-muted">{{ item.produto.codigo }}</small><br>
+                {{ item.produto.nome }}
+              </td>
+              <td class="text-end">{{ "%.3f"|format(item.quantidade)|replace('.000','') }} {{ item.produto.unidade }}</td>
+              <td class="text-end">R$ {{ "%.2f"|format(item.preco_unitario) }}</td>
+              <td class="text-end">R$ {{ "%.2f"|format(item.total) }}</td>
+              <td>
+                <button class="btn btn-sm btn-outline-danger btn-remover"
+                        data-item-id="{{ item.id }}">
+                  <i class="bi bi-x"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resumo e finalização -->
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-calculator"></i> Totais</div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between mb-1">
+          <span>Subtotal:</span>
+          <strong id="subtotalDisplay">R$ {{ "%.2f"|format(venda.subtotal) }}</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-1">
+          <span>Desconto:</span>
+          <strong id="descontoDisplay">R$ {{ "%.2f"|format(venda.desconto) }}</strong>
+        </div>
+        <hr>
+        <div class="d-flex justify-content-between fs-5">
+          <span>Total:</span>
+          <strong class="text-success" id="totalDisplay">R$ {{ "%.2f"|format(venda.total) }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><i class="bi bi-credit-card"></i> Finalizar Venda</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('vendas.finalizar', id=venda.id) }}">
+          <div class="mb-3">
+            <label class="form-label">Cliente</label>
+            <select name="cliente_id" class="form-select">
+              <option value="">— Consumidor final —</option>
+              {% for c in clientes %}
+              <option value="{{ c.id }}" {{ 'selected' if venda.cliente_id == c.id }}>
+                {{ c.nome }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Desconto (R$)</label>
+            <input type="number" name="desconto" class="form-control" step="0.01" min="0"
+                   value="{{ "%.2f"|format(venda.desconto) }}" id="descontoInput">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Forma de Pagamento *</label>
+            <select name="forma_pagamento" class="form-select" required>
+              <option value="">Selecione...</option>
+              <option value="Dinheiro">Dinheiro</option>
+              <option value="Cartão de Débito">Cartão de Débito</option>
+              <option value="Cartão de Crédito">Cartão de Crédito</option>
+              <option value="PIX">PIX</option>
+              <option value="Boleto">Boleto</option>
+              <option value="Cheque">Cheque</option>
+              <option value="Crediário">Crediário</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Observação</label>
+            <textarea name="observacao" class="form-control" rows="2">{{ venda.observacao or '' }}</textarea>
+          </div>
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-success btn-lg">
+              <i class="bi bi-check-circle"></i> Finalizar Venda
+            </button>
+          </div>
+        </form>
+        <hr>
+        <form method="post" action="{{ url_for('vendas.cancelar', id=venda.id) }}"
+              onsubmit="return confirm('Cancelar esta venda?')">
+          <button type="submit" class="btn btn-outline-danger w-100">
+            <i class="bi bi-x-circle"></i> Cancelar Venda
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const VENDA_ID = {{ venda.id }};
+let produtoAtual = null;
+
+const buscaInput = document.getElementById('buscaProduto');
+const resultadosDiv = document.getElementById('resultadosBusca');
+const produtoSelecionadoDiv = document.getElementById('produtoSelecionado');
+const produtoInfoSpan = document.getElementById('produtoInfo');
+const qtdInput = document.getElementById('qtdInput');
+const subtotalDisplay = document.getElementById('subtotalDisplay');
+const descontoDisplay = document.getElementById('descontoDisplay');
+const totalDisplay = document.getElementById('totalDisplay');
+const descontoInput = document.getElementById('descontoInput');
+
+let buscaTimeout = null;
+
+buscaInput && buscaInput.addEventListener('input', () => {
+  clearTimeout(buscaTimeout);
+  const q = buscaInput.value.trim();
+  if (q.length < 1) { resultadosDiv.innerHTML = ''; return; }
+  buscaTimeout = setTimeout(() => buscarProdutos(q), 300);
+});
+
+async function buscarProdutos(q) {
+  const res = await fetch(`/produtos/buscar?q=${encodeURIComponent(q)}`);
+  const dados = await res.json();
+  resultadosDiv.innerHTML = '';
+  if (dados.length === 0) {
+    resultadosDiv.innerHTML = '<div class="list-group-item text-muted">Nenhum produto encontrado</div>';
+    return;
+  }
+  dados.forEach(p => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'list-group-item list-group-item-action';
+    item.innerHTML = `<strong>${p.codigo}</strong> – ${p.nome} <small class="text-muted">(${p.estoque} ${p.unidade} | R$ ${p.preco_venda.toFixed(2)})</small>`;
+    item.addEventListener('click', () => selecionarProduto(p));
+    resultadosDiv.appendChild(item);
+  });
+}
+
+function selecionarProduto(p) {
+  produtoAtual = p;
+  resultadosDiv.innerHTML = '';
+  buscaInput.value = '';
+  produtoInfoSpan.textContent = `${p.codigo} – ${p.nome} | R$ ${p.preco_venda.toFixed(2)}/${p.unidade}`;
+  produtoSelecionadoDiv.classList.remove('d-none');
+  qtdInput.focus();
+}
+
+document.getElementById('btnAddItem') && document.getElementById('btnAddItem').addEventListener('click', async () => {
+  if (!produtoAtual) return;
+  const qtd = parseFloat(qtdInput.value) || 1;
+  if (qtd <= 0) { alert('Quantidade inválida'); return; }
+  const res = await fetch(`/vendas/${VENDA_ID}/adicionar-item`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      produto_id: produtoAtual.id,
+      quantidade: qtd,
+      preco_unitario: produtoAtual.preco_venda,
+      desconto: 0
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) { alert(data.erro || 'Erro ao adicionar item'); return; }
+  atualizarTabela(data);
+  produtoAtual = null;
+  produtoSelecionadoDiv.classList.add('d-none');
+  qtdInput.value = 1;
+  buscaInput.focus();
+});
+
+document.getElementById('tbodyItens') && document.getElementById('tbodyItens').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.btn-remover');
+  if (!btn) return;
+  if (!confirm('Remover este item?')) return;
+  const itemId = btn.dataset.itemId;
+  const res = await fetch(`/vendas/${VENDA_ID}/remover-item/${itemId}`, {method: 'DELETE'});
+  const data = await res.json();
+  if (!res.ok) { alert(data.erro || 'Erro'); return; }
+  atualizarTabela(data);
+});
+
+function atualizarTabela(data) {
+  const tbody = document.getElementById('tbodyItens');
+  tbody.innerHTML = '';
+  data.itens.forEach(i => {
+    const tr = document.createElement('tr');
+    tr.id = `row-${i.id}`;
+    const qtdStr = i.quantidade % 1 === 0 ? i.quantidade.toFixed(0) : i.quantidade.toFixed(3);
+    tr.innerHTML = `
+      <td><small class="text-muted">${i.produto_codigo}</small><br>${i.produto_nome}</td>
+      <td class="text-end">${qtdStr} ${i.unidade}</td>
+      <td class="text-end">R$ ${i.preco_unitario.toFixed(2)}</td>
+      <td class="text-end">R$ ${i.total.toFixed(2)}</td>
+      <td><button class="btn btn-sm btn-outline-danger btn-remover" data-item-id="${i.id}">
+        <i class="bi bi-x"></i></button></td>`;
+    tbody.appendChild(tr);
+  });
+  subtotalDisplay.textContent = `R$ ${data.subtotal.toFixed(2)}`;
+  descontoDisplay.textContent = `R$ ${data.desconto.toFixed(2)}`;
+  totalDisplay.textContent = `R$ ${data.total.toFixed(2)}`;
+  if (descontoInput) descontoInput.value = data.desconto.toFixed(2);
+}
+</script>
+{% endblock %}
