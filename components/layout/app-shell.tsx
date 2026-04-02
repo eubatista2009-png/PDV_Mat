@@ -27,8 +27,8 @@ type AppShellProps = {
 
 export function AppShell({ title, description, pathname, email, role, demo, children }: AppShellProps) {
   return (
-    <div className="min-h-screen px-4 py-4 md:px-6 md:py-6">
-      <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[260px_1fr]">
+    <div className="min-h-screen px-6 py-6">
+      <div className="grid w-full gap-4 lg:grid-cols-[260px_1fr]">
         <aside className="surface sticky top-4 flex h-fit flex-col rounded-[28px] p-5 shadow-soft">
           <div>
             <span className="eyebrow text-xs text-clay">PDV Mat</span>

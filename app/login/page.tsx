@@ -28,7 +28,7 @@ export default async function LoginPage() {
 
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.15fr_0.85fr]">
-      <section className="relative overflow-hidden bg-hero-grid px-6 py-10 lg:px-12 lg:py-14">
+      <section className="relative overflow-hidden bg-hero-grid px-6 py-10 lg:py-14">
         <div className="surface-strong mx-auto flex h-full max-w-3xl flex-col justify-between rounded-[32px] p-8 shadow-soft lg:p-10">
           <div className="space-y-6">
             <span className="eyebrow text-xs text-forest">SaaS de operacao varejista</span>
@@ -58,7 +58,7 @@ export default async function LoginPage() {
         </div>
       </section>
 
-      <section className="flex items-center justify-center px-6 py-10 lg:px-12">
+      <section className="flex items-center justify-center px-6 py-10">
         <div className="w-full max-w-md space-y-6">
           <div className="space-y-3">
             <span className="eyebrow text-xs text-clay">Entrar na operacao</span>
