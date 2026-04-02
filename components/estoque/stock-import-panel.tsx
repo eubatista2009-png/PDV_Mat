@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { entradaPorCodigoBarrasAction, importEstoquePlanilhaAction } from '@/app/estoque/actions';
+import { entradaPorCodigoBarrasAction, importEstoquePlanilhaAction, importarNotaFiscalXmlAction } from '@/app/estoque/actions';
 import { Button } from '@/components/ui/button';
 
 type StockImportPanelProps = {
@@ -15,6 +15,8 @@ export function StockImportPanel({ isAdmin }: StockImportPanelProps) {
   const [isPending, startTransition] = useTransition();
   const [planilhaMsg, setPlanilhaMsg] = useState<string | null>(null);
   const [planilhaOk, setPlanilhaOk] = useState(false);
+  const [xmlMsg, setXmlMsg] = useState<string | null>(null);
+  const [xmlOk, setXmlOk] = useState(false);
   const [barcodeMsg, setBarcodeMsg] = useState<string | null>(null);
   const [barcodeOk, setBarcodeOk] = useState(false);
 
@@ -46,8 +48,22 @@ export function StockImportPanel({ isAdmin }: StockImportPanelProps) {
     });
   };
 
+  const handleXmlSubmit = (formData: FormData) => {
+    setXmlMsg(null);
+
+    startTransition(async () => {
+      const result = await importarNotaFiscalXmlAction(formData);
+      setXmlOk(result.ok);
+      setXmlMsg(result.message);
+
+      if (result.ok) {
+        router.refresh();
+      }
+    });
+  };
+
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className="grid gap-4 xl:grid-cols-3">
       <article className="surface rounded-[28px] p-6 shadow-soft">
         <h3 className="font-[var(--font-heading)] text-xl text-ink">Importacao por planilha</h3>
         <p className="mt-2 text-sm text-ink/65">
@@ -84,6 +100,42 @@ export function StockImportPanel({ isAdmin }: StockImportPanelProps) {
 
           {!isAdmin && (
             <p className="text-sm text-clay">Somente usuarios admin podem importar produtos no estoque.</p>
+          )}
+        </form>
+      </article>
+
+      <article className="surface rounded-[28px] p-6 shadow-soft">
+        <h3 className="font-[var(--font-heading)] text-xl text-ink">Entrada por XML do fornecedor</h3>
+        <p className="mt-2 text-sm text-ink/65">
+          Envie o XML da NF-e de compra para cadastrar ou atualizar produtos automaticamente com quantidade e custo.
+        </p>
+
+        <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-xs text-ink/70">
+          <p>Leitura de itens da NF-e: descricao, GTIN/EAN, NCM, quantidade e valor unitario.</p>
+          <p className="mt-1">Sem GTIN, o sistema gera um codigo interno baseado no numero da nota e no codigo do fornecedor.</p>
+        </div>
+
+        <form action={handleXmlSubmit} className="mt-5 space-y-4">
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-ink">Arquivo XML da NF-e</label>
+            <input
+              type="file"
+              name="xml_nota"
+              accept=".xml,text/xml,application/xml"
+              disabled={!isAdmin || isPending}
+              className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm outline-none transition file:mr-4 file:rounded-xl file:border-0 file:bg-ink file:px-3 file:py-2 file:text-white"
+              required
+            />
+          </div>
+
+          <Button type="submit" className="w-full" disabled={!isAdmin || isPending}>
+            {isPending ? 'Processando XML...' : 'Importar XML da nota'}
+          </Button>
+
+          {xmlMsg && (
+            <p className={`rounded-2xl px-4 py-3 text-sm ${xmlOk ? 'bg-forest/10 text-forest' : 'bg-clay/10 text-clay'}`}>
+              {xmlMsg}
+            </p>
           )}
         </form>
       </article>

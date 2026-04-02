@@ -1,3 +1,5 @@
+import { unstable_noStore as noStore } from 'next/cache';
+
 import { AppShell } from '@/components/layout/app-shell';
 import { StockImportPanel } from '@/components/estoque/stock-import-panel';
 import { StockTable } from '@/components/estoque/stock-table';
@@ -7,6 +9,8 @@ import { getStockSnapshot } from '@/services/estoque-service';
 import { listProdutos } from '@/services/catalogo-service';
 
 export default async function EstoquePage() {
+  noStore();
+
   const user = await requireUser();
   const [products, snapshot] = await Promise.all([listProdutos(), getStockSnapshot()]);
 

@@ -1,5 +1,6 @@
 'use server';
 
+import { XMLParser } from 'fast-xml-parser';
 import * as XLSX from 'xlsx';
 import { revalidatePath } from 'next/cache';
 
@@ -10,6 +11,16 @@ import { fetchGoogleProductSpecsByBarcode } from '@/services/google-product-spec
 type ActionResult = {
   ok: boolean;
   message: string;
+};
+
+type EstoqueUpsertRow = {
+  nome: string;
+  categoria: string;
+  preco_custo: number;
+  preco_venda: number;
+  quantidade: number;
+  estoque_minimo: number;
+  codigo_barras: string;
 };
 
 const HEADER_ALIASES = {
@@ -68,6 +79,120 @@ function toBarcode(value: unknown) {
   return '';
 }
 
+function asArray<T>(value: T | T[] | null | undefined): T[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  return value ? [value] : [];
+}
+
+function findFirstValueByKey(input: unknown, key: string): unknown {
+  if (!input || typeof input !== 'object') {
+    return undefined;
+  }
+
+  if (Array.isArray(input)) {
+    for (const item of input) {
+      const found = findFirstValueByKey(item, key);
+      if (found !== undefined) {
+        return found;
+      }
+    }
+
+    return undefined;
+  }
+
+  const record = input as Record<string, unknown>;
+
+  if (key in record) {
+    return record[key];
+  }
+
+  for (const value of Object.values(record)) {
+    const found = findFirstValueByKey(value, key);
+    if (found !== undefined) {
+      return found;
+    }
+  }
+
+  return undefined;
+}
+
+function deduplicateRowsByBarcode(rows: EstoqueUpsertRow[], mode: 'keep-last' | 'sum-quantity') {
+  const uniqueRowsByBarcode = new Map<string, EstoqueUpsertRow>();
+  let duplicateRows = 0;
+
+  for (const row of rows) {
+    const existing = uniqueRowsByBarcode.get(row.codigo_barras);
+
+    if (!existing) {
+      uniqueRowsByBarcode.set(row.codigo_barras, row);
+      continue;
+    }
+
+    duplicateRows += 1;
+
+    if (mode === 'sum-quantity') {
+      uniqueRowsByBarcode.set(row.codigo_barras, {
+        ...row,
+        quantidade: existing.quantidade + row.quantidade,
+        estoque_minimo: Math.max(existing.estoque_minimo, row.estoque_minimo)
+      });
+      continue;
+    }
+
+    uniqueRowsByBarcode.set(row.codigo_barras, row);
+  }
+
+  return {
+    rows: Array.from(uniqueRowsByBarcode.values()),
+    duplicateRows
+  };
+}
+
+function estimateSalePrice(cost: number) {
+  return Math.max(0, Number((cost * 1.35).toFixed(2)));
+}
+
+function extractNfeItems(parsedXml: unknown) {
+  const detNodes = asArray(findFirstValueByKey(parsedXml, 'det'));
+  const invoiceNumber = String(findFirstValueByKey(parsedXml, 'nNF') ?? '').trim();
+
+  return detNodes
+    .map((det, index) => {
+      const prod = det && typeof det === 'object' ? (det as Record<string, unknown>).prod : null;
+
+      if (!prod || typeof prod !== 'object') {
+        return null;
+      }
+
+      const product = prod as Record<string, unknown>;
+      const supplierCode = String(product.cProd ?? '').trim();
+      const name = String(product.xProd ?? '').trim();
+      const quantity = toNumber(product.qCom);
+      const unitCost = toNumber(product.vUnCom);
+      const ncm = String(product.NCM ?? '').trim();
+      const gtin = toBarcode(product.cEAN) || toBarcode(product.cEANTrib);
+      const barcode = gtin || `NF${invoiceNumber || 'SEMNUMERO'}-${supplierCode || index + 1}`;
+
+      if (!name || quantity === null || unitCost === null) {
+        return null;
+      }
+
+      return {
+        nome: name,
+        categoria: ncm ? `NCM ${ncm}` : 'Entrada via XML',
+        preco_custo: Math.max(0, Number(unitCost.toFixed(2))),
+        preco_venda: estimateSalePrice(unitCost),
+        quantidade: Math.max(0, Math.trunc(quantity)),
+        estoque_minimo: 0,
+        codigo_barras: barcode
+      } satisfies EstoqueUpsertRow;
+    })
+    .filter((item): item is EstoqueUpsertRow => Boolean(item && item.quantidade > 0 && item.codigo_barras));
+}
+
 export async function importEstoquePlanilhaAction(formData: FormData): Promise<ActionResult> {
   const user = await getCurrentUser();
 
@@ -115,15 +240,7 @@ export async function importEstoquePlanilhaAction(formData: FormData): Promise<A
     return normalizedRow;
   });
 
-  const parsedRows: Array<{
-    nome: string;
-    categoria: string;
-    preco_custo: number;
-    preco_venda: number;
-    quantidade: number;
-    estoque_minimo: number;
-    codigo_barras: string;
-  }> = [];
+  const parsedRows: EstoqueUpsertRow[] = [];
 
   let invalidRows = 0;
 
@@ -168,19 +285,7 @@ export async function importEstoquePlanilhaAction(formData: FormData): Promise<A
     };
   }
 
-  const uniqueRowsByBarcode = new Map<string, (typeof parsedRows)[number]>();
-  let duplicateRows = 0;
-
-  for (const row of parsedRows) {
-    if (uniqueRowsByBarcode.has(row.codigo_barras)) {
-      duplicateRows += 1;
-    }
-
-    // Mantem a ultima ocorrencia do mesmo codigo de barras no arquivo.
-    uniqueRowsByBarcode.set(row.codigo_barras, row);
-  }
-
-  const upsertRows = Array.from(uniqueRowsByBarcode.values());
+  const { rows: upsertRows, duplicateRows } = deduplicateRowsByBarcode(parsedRows, 'keep-last');
 
   const { error } = await supabase.from('produtos').upsert(upsertRows, { onConflict: 'codigo_barras' });
 
@@ -193,6 +298,65 @@ export async function importEstoquePlanilhaAction(formData: FormData): Promise<A
   return {
     ok: true,
     message: `Importacao concluida. ${upsertRows.length} produtos processados com sucesso${invalidRows ? `, ${invalidRows} linhas invalidas ignoradas` : ''}${duplicateRows ? ` e ${duplicateRows} linhas duplicadas consolidadas pelo codigo de barras` : ''}.`
+  };
+}
+
+export async function importarNotaFiscalXmlAction(formData: FormData): Promise<ActionResult> {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== 'admin') {
+    return { ok: false, message: 'Somente administradores podem importar XML de fornecedor.' };
+  }
+
+  const file = formData.get('xml_nota');
+
+  if (!(file instanceof File)) {
+    return { ok: false, message: 'Selecione um arquivo XML de nota fiscal.' };
+  }
+
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    return {
+      ok: false,
+      message: 'Supabase admin nao configurado. Defina SUPABASE_SERVICE_ROLE_KEY para importar XML.'
+    };
+  }
+
+  const xmlContent = await file.text();
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    parseTagValue: false,
+    trimValues: true
+  });
+
+  let parsedXml: unknown;
+
+  try {
+    parsedXml = parser.parse(xmlContent);
+  } catch {
+    return { ok: false, message: 'Nao foi possivel interpretar o XML informado.' };
+  }
+
+  const extractedRows = extractNfeItems(parsedXml);
+
+  if (!extractedRows.length) {
+    return { ok: false, message: 'Nenhum item valido foi encontrado no XML da nota fiscal.' };
+  }
+
+  const { rows: upsertRows, duplicateRows } = deduplicateRowsByBarcode(extractedRows, 'sum-quantity');
+
+  const { error } = await supabase.from('produtos').upsert(upsertRows, { onConflict: 'codigo_barras' });
+
+  if (error) {
+    return { ok: false, message: `Falha ao importar XML: ${error.message}` };
+  }
+
+  revalidatePath('/estoque');
+
+  return {
+    ok: true,
+    message: `XML importado com sucesso. ${upsertRows.length} produtos processados${duplicateRows ? ` e ${duplicateRows} itens duplicados consolidados` : ''}.`
   };
 }
 

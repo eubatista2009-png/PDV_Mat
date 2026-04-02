@@ -1,11 +1,16 @@
 import 'server-only';
 
+import { unstable_noStore as noStore } from 'next/cache';
+
 import { demoProducts } from '@/lib/demo-data';
+import { isSupabaseConfigured } from '@/lib/env';
 import { getSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import type { Product } from '@/lib/types';
 
 export async function listProdutos(): Promise<Product[]> {
+  noStore();
+
   const supabase = getSupabaseServerClient();
   const supabaseAdmin = getSupabaseAdminClient();
 
@@ -29,7 +34,7 @@ export async function listProdutos(): Promise<Product[]> {
     }
   }
 
-  return demoProducts;
+  return isSupabaseConfigured() ? [] : demoProducts;
 }
 
 export async function searchProdutos(query: string) {
