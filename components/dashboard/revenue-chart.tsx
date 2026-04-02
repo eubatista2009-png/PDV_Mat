@@ -21,6 +21,15 @@ type RevenueChartProps = {
 export function RevenueChart({ revenue, categories }: RevenueChartProps) {
   const maxRevenue = Math.max(...revenue.map((item) => item.value), 0);
   const step = maxRevenue > 0 ? Math.ceil(maxRevenue / 5) : 100;
+  const categoryColors = ['#df6d57', '#155e63', '#f2b84b', '#3f7d20', '#0d9488'];
+  const totalCategories = categories.reduce((sum, item) => sum + item.value, 0);
+  const topCategories = [...categories]
+    .sort((left, right) => right.value - left.value)
+    .slice(0, 5)
+    .map((item) => ({
+      ...item,
+      percent: totalCategories > 0 ? (item.value / totalCategories) * 100 : 0
+    }));
 
   const lowerBounds = revenue.map((item) => Math.floor(item.value / step) * step);
   const bandSizes = revenue.map((item, index) => Math.max(item.value - lowerBounds[index], 0));
@@ -58,6 +67,7 @@ export function RevenueChart({ revenue, categories }: RevenueChartProps) {
             ]
           }}
           options={{
+            indexAxis: 'y',
             maintainAspectRatio: false,
             plugins: {
               legend: { display: false },
@@ -74,13 +84,16 @@ export function RevenueChart({ revenue, categories }: RevenueChartProps) {
               }
             },
             scales: {
-              x: { stacked: true, grid: { display: false } },
-              y: {
+              x: {
                 stacked: true,
                 grid: { color: 'rgba(23,23,23,0.06)' },
                 ticks: {
                   callback: (value) => `R$ ${Number(value).toFixed(0)}`
                 }
+              },
+              y: {
+                stacked: true,
+                grid: { display: false }
               }
             }
           }}
@@ -91,16 +104,16 @@ export function RevenueChart({ revenue, categories }: RevenueChartProps) {
       <article className="surface rounded-[28px] p-6 shadow-soft">
         <div className="mb-5">
           <h3 className="font-[var(--font-heading)] text-xl text-ink">Participacao por categoria</h3>
-          <p className="text-sm text-ink/60">Leitura rapida do peso do estoque por frente de venda.</p>
+          <p className="text-sm text-ink/60">Ranking dos 5 grupos com maior participacao percentual.</p>
         </div>
-        <div className="mx-auto h-[260px] max-w-[260px]">
+        <div className="mx-auto h-[220px] max-w-[260px]">
           <Doughnut
             data={{
-              labels: categories.map((item) => item.label),
+              labels: topCategories.map((item) => item.label),
               datasets: [
                 {
-                  data: categories.map((item) => item.value),
-                  backgroundColor: ['#df6d57', '#155e63', '#f2b84b', '#3f7d20', '#0d9488']
+                  data: topCategories.map((item) => item.value),
+                  backgroundColor: categoryColors
                 }
               ]
             }}
@@ -109,6 +122,18 @@ export function RevenueChart({ revenue, categories }: RevenueChartProps) {
               plugins: { legend: { position: 'bottom' } }
             }}
           />
+        </div>
+
+        <div className="mt-5 space-y-2">
+          {topCategories.map((item, index) => (
+            <div key={item.label} className="flex items-center justify-between rounded-2xl bg-white px-3 py-2 text-sm">
+              <div className="flex items-center gap-2 text-ink/80">
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: categoryColors[index] }} />
+                <span className="font-medium">{index + 1}º {item.label}</span>
+              </div>
+              <span className="font-semibold text-ink">{item.percent.toFixed(1)}%</span>
+            </div>
+          ))}
         </div>
       </article>
     </div>
