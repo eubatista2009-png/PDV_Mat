@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 
 import { getCurrentUser } from '@/lib/auth';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { fetchGoogleProductSpecsByBarcode } from '@/services/google-product-specs-service';
 
 type ActionResult = {
   ok: boolean;
@@ -216,7 +217,44 @@ export async function entradaPorCodigoBarrasAction(formData: FormData): Promise<
   }
 
   if (!product) {
-    return { ok: false, message: 'Produto nao encontrado para o codigo de barras informado.' };
+    const googleSpecs = await fetchGoogleProductSpecsByBarcode(codigoBarras);
+
+    if (!googleSpecs) {
+      return {
+        ok: false,
+        message:
+          'Produto nao encontrado no estoque e nao foi possivel obter especificacoes via Google. Verifique GOOGLE_API_KEY/GOOGLE_CSE_ID ou cadastre o item pela planilha.'
+      };
+    }
+
+    const nomeSugerido = googleSpecs.title || `Produto ${codigoBarras}`;
+    const categoriaSugerida = 'Nao categorizado';
+
+    const { data: insertedProduct, error: insertError } = await supabase
+      .from('produtos')
+      .insert({
+        nome: nomeSugerido,
+        categoria: categoriaSugerida,
+        preco_custo: 0,
+        preco_venda: 0,
+        quantidade: Math.trunc(quantidadeEntrada),
+        estoque_minimo: 0,
+        codigo_barras: codigoBarras
+      })
+      .select('nome, quantidade')
+      .single();
+
+    if (insertError || !insertedProduct) {
+      return {
+        ok: false,
+        message: `Produto nao encontrado e falha ao cadastrar com dados do Google: ${insertError?.message ?? 'erro desconhecido'}`
+      };
+    }
+
+    return {
+      ok: true,
+      message: `Produto criado via Google (${insertedProduct.nome}) e entrada registrada com ${insertedProduct.quantidade} unidades.${googleSpecs.link ? ` Fonte: ${googleSpecs.link}` : ''}`
+    };
   }
 
   const novaQuantidade = Math.max(0, Number(product.quantidade) + Math.trunc(quantidadeEntrada));
