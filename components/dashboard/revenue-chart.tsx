@@ -171,7 +171,7 @@ export function RevenueChart({ revenue, categories }: RevenueChartProps) {
                     color: '#171717',
                     font: {
                       size: 12,
-                      weight: '600'
+                      weight: 'bold'
                     }
                   }
                 }
