@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Route } from 'next';
 import { Activity, ChartPie, LayoutDashboard, PackageSearch, ShoppingBasket, Wallet2 } from 'lucide-react';
 
 import { logoutAction } from '@/app/login/actions';
@@ -45,7 +46,7 @@ export function AppShell({ title, description, pathname, email, role, demo, chil
                 return (
                   <Link
                     key={link.href}
-                    href={link.href}
+                    href={link.href as Route}
                     className={cn(
                       'flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition',
                       active ? 'bg-ink text-white' : 'text-ink/70 hover:bg-ink/5 hover:text-ink'
