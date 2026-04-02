@@ -40,6 +40,31 @@ export function PdvTerminal({ products }: PdvTerminalProps) {
     );
   });
 
+  const normalizedQuery = deferredQuery.trim().toLowerCase();
+  const prioritizedProducts = [...filteredProducts].sort((left, right) => {
+    if (!normalizedQuery) {
+      return left.nome.localeCompare(right.nome);
+    }
+
+    const leftNameStarts = left.nome.toLowerCase().startsWith(normalizedQuery) ? 1 : 0;
+    const rightNameStarts = right.nome.toLowerCase().startsWith(normalizedQuery) ? 1 : 0;
+
+    if (leftNameStarts !== rightNameStarts) {
+      return rightNameStarts - leftNameStarts;
+    }
+
+    const leftBarcodeStarts = left.codigo_barras.startsWith(normalizedQuery) ? 1 : 0;
+    const rightBarcodeStarts = right.codigo_barras.startsWith(normalizedQuery) ? 1 : 0;
+
+    if (leftBarcodeStarts !== rightBarcodeStarts) {
+      return rightBarcodeStarts - leftBarcodeStarts;
+    }
+
+    return left.nome.localeCompare(right.nome);
+  });
+
+  const visibleProducts = normalizedQuery ? prioritizedProducts.slice(0, 12) : prioritizedProducts.slice(0, 16);
+
   const total = cart.reduce((sum, item) => sum + item.preco * item.quantidade, 0);
 
   function addToCart(product: Product) {
@@ -153,53 +178,81 @@ export function PdvTerminal({ products }: PdvTerminalProps) {
           className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 outline-none transition focus:border-forest"
         />
 
-        <div className="grid gap-3 md:grid-cols-2">
-          {filteredProducts.map((product) => (
-            <button
-              key={product.id}
-              type="button"
-              onClick={() => addToCart(product)}
-              className="rounded-3xl border border-ink/10 bg-white p-4 text-left transition hover:-translate-y-0.5 hover:border-forest/35 hover:shadow-soft"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-ink/45">{product.categoria}</p>
-                  <h4 className="mt-2 font-semibold text-ink">{product.nome}</h4>
+        <div className="rounded-[28px] border border-ink/10 bg-white">
+          <div className="grid grid-cols-[minmax(0,1.6fr)_0.9fr_0.7fr_0.9fr_auto] gap-3 border-b border-ink/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-ink/45">
+            <span>Item</span>
+            <span>Categoria</span>
+            <span>Estoque</span>
+            <span>Preco</span>
+            <span className="text-right">Acao</span>
+          </div>
+
+          <div className="divide-y divide-ink/10">
+            {visibleProducts.length ? (
+              visibleProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="grid grid-cols-[minmax(0,1.6fr)_0.9fr_0.7fr_0.9fr_auto] items-center gap-3 px-4 py-3 transition hover:bg-sand/45"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-ink">{product.nome}</p>
+                    <p className="truncate text-xs text-ink/45">Cod. {product.codigo_barras}</p>
+                  </div>
+                  <p className="truncate text-sm text-ink/65">{product.categoria}</p>
+                  <span className="text-sm font-semibold text-forest">{product.quantidade}</span>
+                  <span className="text-sm font-semibold text-ink">{formatCurrency(product.preco_venda)}</span>
+                  <Button type="button" className="px-3 py-2 text-xs" onClick={() => addToCart(product)}>
+                    Adicionar
+                  </Button>
                 </div>
-                <span className="rounded-full bg-mist px-3 py-1 text-xs text-forest">Estoque {product.quantidade}</span>
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <span className="font-[var(--font-heading)] text-xl text-ink">{formatCurrency(product.preco_venda)}</span>
-                <span className="text-xs text-ink/45">Cod. {product.codigo_barras}</span>
-              </div>
-            </button>
-          ))}
+              ))
+            ) : (
+              <div className="px-4 py-8 text-center text-sm text-ink/55">Nenhum item encontrado para a busca informada.</div>
+            )}
+          </div>
         </div>
       </section>
 
       <aside className="surface flex flex-col rounded-[28px] p-6 shadow-soft">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-[var(--font-heading)] text-2xl text-ink">Carrinho atual</h3>
-            <p className="text-sm text-ink/60">Nao permite finalizar sem saldo disponivel em estoque.</p>
+        <div className="rounded-[28px] bg-ink p-5 text-white">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="font-[var(--font-heading)] text-2xl">Carrinho atual</h3>
+                <p className="text-sm text-white/65">Nao permite finalizar sem saldo disponivel em estoque.</p>
+              </div>
+              <select
+                value={formaPagamento}
+                onChange={(event) => setFormaPagamento(event.target.value)}
+                className="rounded-2xl border border-white/10 bg-white/95 px-3 py-2 text-sm text-ink outline-none"
+              >
+                <option value="pix">PIX</option>
+                <option value="cartao">Cartao</option>
+                <option value="dinheiro">Dinheiro</option>
+              </select>
+            </div>
+
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-sm text-white/65">Total da venda</p>
+                <p className="mt-2 font-[var(--font-heading)] text-4xl">{formatCurrency(total)}</p>
+              </div>
+              <Button type="button" variant="secondary" className="min-w-[180px]" disabled={submitting} onClick={finalizeSale}>
+                {submitting ? 'Processando venda...' : 'Finalizar venda'}
+              </Button>
+            </div>
+
+            {feedback && <p className="text-sm text-white/80">{feedback}</p>}
           </div>
-          <select
-            value={formaPagamento}
-            onChange={(event) => setFormaPagamento(event.target.value)}
-            className="rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm outline-none"
-          >
-            <option value="pix">PIX</option>
-            <option value="cartao">Cartao</option>
-            <option value="dinheiro">Dinheiro</option>
-          </select>
         </div>
 
         <div className="mt-6 flex-1 space-y-3">
           {cart.length ? (
-            cart.map((item) => (
+            cart.map((item, index) => (
               <div key={item.produtoId} className="rounded-3xl border border-ink/10 bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.24em] text-ink/40">Item {index + 1}</p>
                     <h4 className="font-semibold text-ink">{item.nome}</h4>
                     <p className="mt-1 text-sm text-ink/55">{formatCurrency(item.preco)} por unidade</p>
                   </div>
@@ -231,15 +284,6 @@ export function PdvTerminal({ products }: PdvTerminalProps) {
               Nenhum item selecionado.
             </div>
           )}
-        </div>
-
-        <div className="mt-6 rounded-[28px] bg-ink p-5 text-white">
-          <p className="text-sm text-white/65">Total da venda</p>
-          <p className="mt-3 font-[var(--font-heading)] text-4xl">{formatCurrency(total)}</p>
-          {feedback && <p className="mt-4 text-sm text-white/80">{feedback}</p>}
-          <Button type="button" variant="secondary" className="mt-5 w-full" disabled={submitting} onClick={finalizeSale}>
-            {submitting ? 'Processando venda...' : 'Finalizar venda'}
-          </Button>
         </div>
       </aside>
     </div>
