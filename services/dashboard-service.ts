@@ -5,7 +5,7 @@ import type { DashboardData, Product, ReportData, Sale } from '@/lib/types';
 import { listProdutos } from '@/services/catalogo-service';
 import { listProdutosBaixoEstoque } from '@/services/estoque-service';
 import { listFinanceiro } from '@/services/financeiro-service';
-import { listRecentSales } from '@/services/vendas-service';
+import { listRecentSales, listSales } from '@/services/vendas-service';
 
 function groupByCategory(products: Product[]) {
   const grouped = new Map<string, number>();
@@ -45,8 +45,9 @@ function buildMonthlyRevenue(sales: Sale[]) {
 }
 
 export async function getDashboardData(): Promise<DashboardData> {
-  const [products, sales, lowStock, financeiro] = await Promise.all([
+  const [products, sales, recentSales, lowStock, financeiro] = await Promise.all([
     listProdutos(),
+    listSales(),
     listRecentSales(),
     listProdutosBaixoEstoque(),
     listFinanceiro()
@@ -82,12 +83,12 @@ export async function getDashboardData(): Promise<DashboardData> {
     monthlyRevenue: buildMonthlyRevenue(sales),
     categoryShare: groupByCategory(products),
     lowStock,
-    recentSales: sales
+    recentSales
   };
 }
 
 export async function getReportData(): Promise<ReportData> {
-  const [products, sales, financeiro] = await Promise.all([listProdutos(), listRecentSales(), listFinanceiro()]);
+  const [products, sales, financeiro] = await Promise.all([listProdutos(), listSales(), listFinanceiro()]);
   const faturamento = financeiro.filter((item) => item.tipo === 'entrada').reduce((sum, item) => sum + item.valor, 0);
   const ticketMedio = sales.length ? faturamento / sales.length : 0;
   const lucroEstimado = estimateProfit(sales, products);

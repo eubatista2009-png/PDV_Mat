@@ -16,11 +16,23 @@ Aplicacao SaaS de operacao varejista com foco em frente de caixa, estoque, finan
 - Login com email e senha
 - Modo demonstracao quando o Supabase nao estiver configurado
 - Dashboard operacional com indicadores e graficos
+- Dashboard com grafico horizontal de faturamento por faixas
+- Dashboard com ranking inline de participacao por categoria em percentual
+- Layout principal distribuido em 100% da tela com espacamento lateral de 24px
 - PDV com busca por produto, carrinho e finalizacao de venda
 - Regra para impedir venda sem estoque
 - Estoque com alertas de minimo e lucro unitario
 - Financeiro com leitura de entradas e saidas
 - Relatorios com faturamento, ticket medio e top produtos
+
+## Estado atual implantado
+
+- Repositorio publicado no GitHub
+- Aplicacao publicada na Vercel
+- Regiao de deploy configurada para gru1 em vercel.json
+- Shell principal ajustado para melhor distribuicao da viewport e sem overflow lateral
+- Sidebar com comportamento estavel e scroll interno apenas quando necessario
+- Dashboard com leitura visual mais direta para faturamento e participacao por categoria
 
 ## Como rodar
 
@@ -79,6 +91,11 @@ git push -u origin main
 3. A regiao ja esta definida como **gru1 (São Paulo)** via vercel.json.
 4. Clique em **Deploy**.
 
+Status atual de publicacao:
+
+- GitHub: https://github.com/eubatista2009-png/PDV_Mat
+- Vercel: https://pdv-mat.vercel.app
+
 ### 7. Configurar Auth Redirect URL
 
 1. No Supabase Dashboard va em **Authentication → URL Configuration**.
@@ -100,9 +117,15 @@ git push -u origin main
 - services: regras de consulta e agregacao de negocio
 - database: schema SQL e funcao transacional de venda
 
-## Proximos passos de produto
+## Melhorias futuras recomendadas
 
 - Adicionar Stripe para monetizacao dos planos Free, Pro e Premium
-- Criar limite de vendas por tenant no plano Free
-- Incluir multi-loja com tenant_id em todas as tabelas
-- Publicar relatorios avancados e rotinas de backup
+- Criar controle de limites por plano, incluindo vendas, usuarios e lojas
+- Incluir multi-loja com tenant_id em todas as tabelas e servicos
+- Expandir relatorios com filtros por periodo, categoria e forma de pagamento
+- Implementar exportacao de relatorios em CSV e PDF
+- Adicionar testes automatizados para fluxos criticos de login, checkout e dashboard
+- Evoluir o dashboard com comparativos entre periodos e metas operacionais
+- Criar auditoria de movimentacoes de estoque e financeiro
+- Adicionar seeds e scripts de setup para ambientes de homologacao e producao
+- Publicar rotina de backup e restauracao para dados operacionais

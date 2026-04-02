@@ -18,24 +18,19 @@ function assertStock(items: CheckoutInput['items'], products: Product[]) {
   }
 }
 
-export async function listRecentSales(): Promise<Sale[]> {
-  const supabase = getSupabaseServerClient();
-
-  if (!supabase) {
-    return demoSales;
-  }
-
-  const { data, error } = await supabase
-    .from('vendas')
-    .select('id, total, forma_pagamento, created_at, itens_venda(produto_id, quantidade, preco, produtos(nome))')
-    .order('created_at', { ascending: false })
-    .limit(10);
-
-  if (error || !data) {
-    return demoSales;
-  }
-
-  return data.map((sale) => ({
+function mapSaleRecord(sale: {
+  id: string;
+  total: number | string;
+  forma_pagamento: string;
+  created_at: string;
+  itens_venda?: Array<{
+    produto_id: string;
+    quantidade: number;
+    preco: number | string;
+    produtos?: { nome?: string } | Array<{ nome?: string }> | null;
+  }> | null;
+}): Sale {
+  return {
     id: sale.id,
     total: Number(sale.total),
     forma_pagamento: sale.forma_pagamento,
@@ -54,7 +49,37 @@ export async function listRecentSales(): Promise<Sale[]> {
         subtotal: Number(item.preco) * item.quantidade
       };
     })
-  }));
+  };
+}
+
+export async function listSales(options?: { limit?: number }): Promise<Sale[]> {
+  const supabase = getSupabaseServerClient();
+  const limit = options?.limit;
+
+  if (!supabase) {
+    return typeof limit === 'number' ? demoSales.slice(0, limit) : demoSales;
+  }
+
+  let query = supabase
+    .from('vendas')
+    .select('id, total, forma_pagamento, created_at, itens_venda(produto_id, quantidade, preco, produtos(nome))')
+    .order('created_at', { ascending: false });
+
+  if (typeof limit === 'number') {
+    query = query.limit(limit);
+  }
+
+  const { data, error } = await query;
+
+  if (error || !data) {
+    return typeof limit === 'number' ? demoSales.slice(0, limit) : demoSales;
+  }
+
+  return data.map(mapSaleRecord);
+}
+
+export async function listRecentSales(): Promise<Sale[]> {
+  return listSales({ limit: 10 });
 }
 
 export async function checkoutVenda(input: CheckoutInput): Promise<CheckoutResult> {
